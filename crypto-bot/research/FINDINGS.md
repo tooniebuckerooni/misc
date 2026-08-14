@@ -40,6 +40,26 @@ walk-forward folds — never a single lucky split.
   than over-tuning parameters (overfitting risk).
 - Combine with a regime filter (only take dips when the higher-timeframe trend isn't collapsing).
 
+## Regime analysis — the key insight (seasons matter)
+
+Bucketing every daily trade by the market season it was entered in (see
+`src/research/regime_analysis.py`, classifier in `src/regime/classifier.py`) shows the "dead"
+strategies are actually **specialists**, each earning in one season and bleeding in others:
+
+| Season (daily) | Breakout | Mean-reversion | Kalman-SuperTrend |
+|---|---|---|---|
+| Bull (trend up) | +36 | −4 | **+25** |
+| Range (chop) | **+88** | −16 | (no signal) |
+| Bear (trend down) | −15 | **+38** | (no signal) |
+| Bull + high-vol | −28 | — | +107 (thin) |
+
+**Routing hypothesis:** trend-up → trend-following (Kalman); chop → breakout; downtrend/crash →
+mean-reversion (buy capitulation). Skip each strategy's losing seasons.
+
+**Caveat:** this mapping was chosen *after* seeing the buckets (in-sample), and some buckets are
+thin (bear n=11). It MUST be validated out-of-sample via walk-forward before trusting — a router
+that only looks good because we hand-picked the winners is just overfitting with extra steps.
+
 ## Guardrail principles adopted (from r/ai_trading trust discussions)
 
 - Limits live in the **execution layer**, never a prompt. (We have no LLM in the loop — enforced in

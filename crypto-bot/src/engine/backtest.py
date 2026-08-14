@@ -30,6 +30,7 @@ MODE = "backtest"
 class _Open:
     pos: Position
     cost_basis: float  # notional + entry fee reserved from working cash
+    entry_regime: str = ""  # market season at entry (for regime analysis)
 
 
 class Backtester:
@@ -40,6 +41,7 @@ class Backtester:
         settings: Settings,
         universe: list[str],
         timeframe: str,
+        regime_classifier=None,
     ):
         self.store = store
         self.strategy = strategy
@@ -47,6 +49,7 @@ class Backtester:
         self.universe = universe
         self.timeframe = timeframe
         self.spread = settings.backtest_spread_frac
+        self.regime_classifier = regime_classifier
 
     def run(
         self, min_bars: int = 60, ts_start: int | None = None, ts_end: int | None = None
@@ -125,6 +128,10 @@ class Backtester:
                 continue
 
             entry_fee = notional * s.maker_fee
+            regime_label = (
+                self.regime_classifier.classify(slice_bars).label
+                if self.regime_classifier is not None else ""
+            )
             open_pos[sym] = _Open(
                 pos=Position(
                     symbol=sym, side=Side.BUY, amount=amount, entry_price=eff_entry,
@@ -132,6 +139,7 @@ class Backtester:
                     opened_ts=ts, entry_fee=entry_fee,
                 ),
                 cost_basis=notional + entry_fee,
+                entry_regime=regime_label,
             )
 
         # Close anything still open at its last available close (mark to market).
@@ -172,6 +180,7 @@ class Backtester:
             opened_ts=p.opened_ts, closed_ts=ts,
             fees=p.entry_fee + exit_fee, gross_pnl=gross, net_pnl=net,
             exit_reason=reason,
+            extra={"regime": o.entry_regime},
         )
         self.store.record_trade(MODE, trade)
         cm.realize(net, ts)
