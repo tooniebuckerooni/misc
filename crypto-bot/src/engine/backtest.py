@@ -48,7 +48,9 @@ class Backtester:
         self.timeframe = timeframe
         self.spread = settings.backtest_spread_frac
 
-    def run(self, min_bars: int = 60) -> Metrics:
+    def run(
+        self, min_bars: int = 60, ts_start: int | None = None, ts_end: int | None = None
+    ) -> Metrics:
         s = self.s
         self.store.reset_mode(MODE)
         cm = CapitalManager(
@@ -69,6 +71,10 @@ class Backtester:
         bars_by_symbol: dict[str, list[OHLCVBar]] = {}
         for sym in self.universe:
             bars = self.store.get_candles(sym, self.timeframe)
+            if ts_start is not None or ts_end is not None:
+                lo = ts_start if ts_start is not None else float("-inf")
+                hi = ts_end if ts_end is not None else float("inf")
+                bars = [b for b in bars if lo <= b.ts < hi]
             if len(bars) >= min_bars:
                 bars_by_symbol[sym] = bars
         if not bars_by_symbol:

@@ -35,9 +35,12 @@ def test_metrics_gate_fails_on_big_loss():
     assert m.passes_gate is False
 
 
-def _settings():
+def _settings(tmp_path=None):
     s = Settings(_env_file=None)
     s.starting_working_capital = 200.0
+    if tmp_path is not None:
+        # Isolate the kill-switch file so tests never touch the real project root.
+        s.kill_switch_file = tmp_path / "KILL_SWITCH"
     return s
 
 
@@ -61,7 +64,7 @@ def test_paper_engine_enter_then_tp(tmp_path, bars, tight_ticker):
     broker = FakeBroker({"ETH/USD": bars}, tight_ticker)
     st = Store(tmp_path / "t.db")
     feed = DataFeed(broker, st)
-    s = _settings()
+    s = _settings(tmp_path)
     strat = BracketBreakout()
     sc = Screener(feed, strat, universe=["ETH/USD"], timeframe="15m", lookback=200, top_n=5)
     eng = PaperEngine(feed, st, strat, s, screener=sc)
@@ -83,7 +86,7 @@ def test_paper_engine_kill_flattens(tmp_path, bars, tight_ticker):
     broker = FakeBroker({"ETH/USD": bars}, tight_ticker)
     st = Store(tmp_path / "t.db")
     feed = DataFeed(broker, st)
-    s = _settings()
+    s = _settings(tmp_path)
     strat = BracketBreakout()
     sc = Screener(feed, strat, universe=["ETH/USD"], timeframe="15m", lookback=200, top_n=5)
     eng = PaperEngine(feed, st, strat, s, screener=sc)

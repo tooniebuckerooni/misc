@@ -45,6 +45,16 @@ def sma(bars: list[OHLCVBar], period: int) -> float | None:
     return sum(b.close for b in bars[-period:]) / period
 
 
+def stdev(bars: list[OHLCVBar], period: int) -> float | None:
+    """Standard deviation of closing prices over the last `period` bars."""
+    if len(bars) < period:
+        return None
+    closes = [b.close for b in bars[-period:]]
+    mean = sum(closes) / period
+    var = sum((c - mean) ** 2 for c in closes) / period
+    return var ** 0.5
+
+
 def returns_std(bars: list[OHLCVBar], period: int) -> float | None:
     """Std-dev of per-bar returns — a normalized volatility gauge for ranking setups."""
     if len(bars) < period + 1:
