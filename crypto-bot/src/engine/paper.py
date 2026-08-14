@@ -73,6 +73,8 @@ class PaperEngine:
             max_position_abs=settings.max_position_abs,
             max_daily_loss_frac=settings.max_daily_loss_frac,
             min_notional=settings.min_notional,
+            risk_per_trade_frac=settings.risk_per_trade_frac,
+            max_portfolio_risk_frac=settings.max_portfolio_risk_frac,
         )
         universe = settings.pair_universe or None
         self.screener = screener or Screener(
@@ -132,7 +134,13 @@ class PaperEngine:
             if self.rm.is_stale(now, cand.ticker.ts, max_age_ms):
                 actions.append(f"SKIP {b.symbol} (stale feed)")
                 continue
-            decision = self.rm.evaluate_entry(now, len(self.positions), self.cm.working, cand.ticker.ask)
+            open_risk = sum(
+                (o.pos.entry_price - o.pos.sl_price) * o.pos.amount for o in self.positions.values()
+            )
+            decision = self.rm.evaluate_entry(
+                now, len(self.positions), self.cm.working, cand.ticker.ask,
+                sl_price=b.sl_price, open_risk=open_risk,
+            )
             if not decision.allowed:
                 continue
             entry = cand.ticker.ask

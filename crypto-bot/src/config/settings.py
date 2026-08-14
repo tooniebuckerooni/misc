@@ -73,11 +73,18 @@ class Settings(BaseSettings):
     vault_symbol: str = "BTC/USD"        # live: swept profit is used to buy BTC on this market
 
     # ---- Risk guardrails ---------------------------------------------------
-    max_open_positions: int = 3
-    max_position_frac: float = 0.34      # max fraction of working equity per position
+    # Diversify: many small bets under a total-risk cap beat few big ones (validated: ret/dd
+    # 2.2 -> 4.3, worst fold -35% -> -6%). Position size is risk-based (below), so a higher count
+    # is safe as long as aggregate risk stays capped.
+    max_open_positions: int = 10
+    max_position_frac: float = 0.25      # max fraction of working equity per position
     max_position_abs: float = 100.0      # hard absolute cap per position
     max_daily_loss_frac: float = 0.10    # halt for the day after this drawdown of working equity
     min_notional: float = 5.0            # skip trades smaller than this (exchange minimums / dust)
+    # Risk-based sizing: size each trade so its stop-out costs ~this fraction of working equity.
+    # Wide-stop (crash) trades therefore get SMALLER, capping falling-knife losses. 0 = off (use notional).
+    risk_per_trade_frac: float = 0.01
+    max_portfolio_risk_frac: float = 0.10  # cap on total open risk across positions (correlation heat)
     max_staleness_bars: int = 3          # reject entries if the price feed is older than this many bars
 
     # ---- Backtest realism --------------------------------------------------

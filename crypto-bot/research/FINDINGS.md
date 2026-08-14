@@ -133,6 +133,23 @@ problem, not a signal problem. Next work belongs here:
 - A trend/vol filter to stand down in sustained free-fall.
 - Position sizing scaled to how deep the dip is / how many positions are already open.
 
+## Risk management — taming the correlated-crash drawdown
+
+The −70 (−35%) fold was a sizing/concentration problem. Fix = **risk-based position sizing** (size so a
+stop-out costs a fixed % of equity) + **portfolio-heat cap** (bound total open risk) + **diversify**
+(many small bets, not few big). Walk-forward on 20 pairs, daily:
+
+| Config | Total | Worst fold | Return/Drawdown |
+|---|---|---|---|
+| fixed-notional (old) | +152 | −70 (−35%) | 2.17 |
+| risk 1%, heat 6%, max 3 | +16 | −14 | 1.19 |
+| **risk 1%, heat 10%, max 10** | +53 | −12 (−6%) | **4.33** |
+| risk 2%, heat 12%, max 12 | +77 | −25 | 3.04 |
+
+**Takeaway:** shrinking bets alone just scales everything down; the win is *diversification under a
+total-risk cap* — ret/dd ~doubles (2.2→4.3) and worst fold drops from −35% to −6% (sleepable). Absolute
+return scales with capital, not bet size. Defaults set to risk 1% / heat 10% / max 10 positions.
+
 ## Guardrail principles adopted (from r/ai_trading trust discussions)
 
 - Limits live in the **execution layer**, never a prompt. (We have no LLM in the loop — enforced in

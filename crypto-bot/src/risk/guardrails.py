@@ -33,6 +33,8 @@ class RiskManager:
         max_position_abs: float = 100.0,
         max_daily_loss_frac: float = 0.10,
         min_notional: float = 5.0,
+        risk_per_trade_frac: float = 0.0,
+        max_portfolio_risk_frac: float = 1.0,
     ):
         self.store = store
         self.mode = mode
@@ -42,6 +44,8 @@ class RiskManager:
         self.max_position_abs = max_position_abs
         self.max_daily_loss_frac = max_daily_loss_frac
         self.min_notional = min_notional
+        self.risk_per_trade_frac = risk_per_trade_frac
+        self.max_portfolio_risk_frac = max_portfolio_risk_frac
 
     # ---- Kill switch -------------------------------------------------------
     def kill_switch_active(self) -> bool:
@@ -91,7 +95,8 @@ class RiskManager:
 
     # ---- Position sizing / gate -------------------------------------------
     def evaluate_entry(
-        self, ts: int, open_positions: int, working_equity: float, entry_price: float
+        self, ts: int, open_positions: int, working_equity: float, entry_price: float,
+        sl_price: float | None = None, open_risk: float = 0.0,
     ) -> RiskDecision:
         if self.kill_switch_active():
             return RiskDecision(False, "kill switch active")
@@ -102,9 +107,23 @@ class RiskManager:
         if entry_price <= 0 or working_equity <= 0:
             return RiskDecision(False, "no capital / invalid price")
 
-        notional = min(self.max_position_frac * working_equity, self.max_position_abs)
-        if notional < self.min_notional:
-            return RiskDecision(False, f"notional {notional:.2f} below minimum {self.min_notional}")
+        notional_cap = min(self.max_position_frac * working_equity, self.max_position_abs)
+        if notional_cap < self.min_notional:
+            return RiskDecision(False, f"notional cap {notional_cap:.2f} below min {self.min_notional}")
+        amount = notional_cap / entry_price
 
-        amount = notional / entry_price
+        # Risk-based sizing: shrink the position so a stop-out costs ~risk_per_trade_frac of equity.
+        if self.risk_per_trade_frac > 0 and sl_price is not None and 0 < sl_price < entry_price:
+            stop_dist = entry_price - sl_price
+            risk_budget = self.risk_per_trade_frac * working_equity
+            amount = min(amount, risk_budget / stop_dist)
+            # Portfolio-heat cap: total open risk (incl. this trade) must fit the budget.
+            heat_cap = self.max_portfolio_risk_frac * working_equity
+            remaining = heat_cap - open_risk
+            if remaining <= 0:
+                return RiskDecision(False, "portfolio risk (heat) cap reached")
+            amount = min(amount, remaining / stop_dist)
+
+        if amount * entry_price < self.min_notional:
+            return RiskDecision(False, "sized notional below minimum")
         return RiskDecision(True, "ok", amount)

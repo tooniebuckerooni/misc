@@ -69,6 +69,8 @@ class Backtester:
             max_position_abs=s.max_position_abs,
             max_daily_loss_frac=s.max_daily_loss_frac,
             min_notional=s.min_notional,
+            risk_per_trade_frac=s.risk_per_trade_frac,
+            max_portfolio_risk_frac=s.max_portfolio_risk_frac,
         )
 
         bars_by_symbol: dict[str, list[OHLCVBar]] = {}
@@ -115,7 +117,13 @@ class Backtester:
             if bracket is None:
                 continue
 
-            decision = rm.evaluate_entry(ts, len(open_pos), cm.working, bracket.entry_price)
+            open_risk = sum(
+                (o.pos.entry_price - o.pos.sl_price) * o.pos.amount for o in open_pos.values()
+            )
+            decision = rm.evaluate_entry(
+                ts, len(open_pos), cm.working, bracket.entry_price,
+                sl_price=bracket.sl_price, open_risk=open_risk,
+            )
             if not decision.allowed:
                 continue
 
