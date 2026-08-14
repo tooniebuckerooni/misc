@@ -76,6 +76,11 @@ class Settings(BaseSettings):
     max_position_frac: float = 0.34      # max fraction of working equity per position
     max_position_abs: float = 100.0      # hard absolute cap per position
     max_daily_loss_frac: float = 0.10    # halt for the day after this drawdown of working equity
+    min_notional: float = 5.0            # skip trades smaller than this (exchange minimums / dust)
+
+    # ---- Backtest realism --------------------------------------------------
+    # OHLCV has no bid/ask, so we assume a spread when simulating fills. Keep it honest.
+    backtest_spread_frac: float = 0.001  # 0.10% assumed spread in backtest
 
     def ensure_dirs(self) -> None:
         DATA_DIR.mkdir(parents=True, exist_ok=True)

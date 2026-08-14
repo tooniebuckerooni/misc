@@ -203,6 +203,14 @@ class Store:
         with self._conn() as c:
             return [dict(r) for r in c.execute(q, args).fetchall()]
 
+    def reset_mode(self, mode: str) -> None:
+        """Wipe all results for a mode (used before a fresh backtest run)."""
+        with self._conn() as c:
+            c.execute("DELETE FROM trades WHERE mode=?", (mode,))
+            c.execute("DELETE FROM equity_snapshots WHERE mode=?", (mode,))
+            c.execute("DELETE FROM sweeps WHERE mode=?", (mode,))
+            c.execute("DELETE FROM kv WHERE key IN (?,?)", (f"capital:{mode}", f"day:{mode}"))
+
     # ---- Key/value runtime state ------------------------------------------
     def set_state(self, key: str, value) -> None:
         with self._conn() as c:
