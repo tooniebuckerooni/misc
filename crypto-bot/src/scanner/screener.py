@@ -16,10 +16,12 @@ from ..strategy.base import Strategy
 
 # ccxt unified symbols (note: Kraken's native XBT is 'BTC' in ccxt). A pragmatic liquid
 # starting set spanning USD / stablecoin / BTC quotes. Overridable via settings.pair_universe.
+# Broad basket of liquid Kraken USD majors — breadth matters for the mean-reversion lead
+# (validated on 20 pairs). Working capital churns these; profits sweep to the BTC vault.
 DEFAULT_UNIVERSE = [
-    "ETH/USD", "SOL/USD", "ADA/USD", "DOT/USD", "LINK/USD", "AVAX/USD", "XRP/USD",
-    "ETH/USDT", "SOL/USDT",
-    "ETH/BTC", "SOL/BTC",
+    "BTC/USD", "ETH/USD", "SOL/USD", "ADA/USD", "XRP/USD", "DOGE/USD", "LTC/USD",
+    "LINK/USD", "DOT/USD", "AVAX/USD", "ATOM/USD", "UNI/USD", "BCH/USD", "ETC/USD",
+    "XLM/USD", "ALGO/USD", "FIL/USD", "AAVE/USD", "NEAR/USD",
 ]
 
 

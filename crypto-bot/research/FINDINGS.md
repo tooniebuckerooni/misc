@@ -109,6 +109,30 @@ range trades vs ~81 on daily) and the edge is buried under spread + fees + noise
 shorter timeframes.** Concentrate research on daily (and the regime router there). Shorter = worse,
 decisively, at these costs and capital.
 
+## Wide universe (20 pairs, daily) — the decisive result
+
+Widened to 20 liquid pairs for statistical power and re-validated:
+
+- **Mean-reversion is THE lead.** Walk-forward (5 folds): `ma30 z2 sl3` → **+152 total, positive in
+  4/5 folds** (multiple meanrev configs 4/5). Breadth turned the thin +69 into a robust +152.
+- **The router got WORSE with breadth: −40 total, 1/4 folds.** Breakout's "range edge" was 5-pair
+  luck (−7 in range across 20), and mean-reversion in the *range* season is toxic (−142). Routing
+  learned "range→meanrev" in some folds and got destroyed OOS. **Complexity lost to simplicity.**
+- A regime **filter** (meanrev but skip the range season) didn't help either: worst fold −70→−52 but
+  total +152→+127. It trims winners and losers alike.
+
+**Conclusion: the horse is plain daily mean-reversion over a broad basket** — buy ~2σ oversold dips,
+revert to the mean, wide stop. Simplest thing we tried, and the most robust. Promoted as the `meanrev`
+preset (`ma30 z2 sl3`); default live universe widened to 19 Kraken USD majors.
+
+### The one real risk: correlated-crash drawdown
+The single losing fold (−70) is the falling-knife failure — in a broad, correlated sell-off the
+dip-buyer loads up everywhere at once and some dips keep dipping. This is a **risk-management**
+problem, not a signal problem. Next work belongs here:
+- Portfolio-heat / correlation cap (limit simultaneous correlated longs — the r/ai_trading point).
+- A trend/vol filter to stand down in sustained free-fall.
+- Position sizing scaled to how deep the dip is / how many positions are already open.
+
 ## Guardrail principles adopted (from r/ai_trading trust discussions)
 
 - Limits live in the **execution layer**, never a prompt. (We have no LLM in the loop — enforced in
