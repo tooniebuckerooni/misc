@@ -60,6 +60,27 @@ mean-reversion (buy capitulation). Skip each strategy's losing seasons.
 thin (bear n=11). It MUST be validated out-of-sample via walk-forward before trusting — a router
 that only looks good because we hand-picked the winners is just overfitting with extra steps.
 
+## Router validation (walk-forward, daily, 5 folds, net P&L from $200)
+
+| Strategy | f1 | f2 | f3 | f4 | f5 | Total | Folds+ | Trades |
+|---|---|---|---|---|---|---|---|---|
+| breakout | −19 | +152 | +16 | +20 | −43 | +126 | 3/5 | 199 |
+| meanrev  | +43 | −1 | +10 | +4 | +12 | +69 | **4/5** | 18 |
+| kalman   | +48 | −7 | +2 | +5 | −9 | +39 | 3/5 | 15 |
+| router   | −14 | +30 | +60 | +42 | −7 | +111 | 3/5 | 97 |
+
+Read honestly:
+- The router is **smoother** than breakout (worst fold −14 vs −43) and beats meanrev/kalman on total,
+  but does **not** dominate — breakout alone has a higher (much streakier) total.
+- **Mean-reversion is the steady horse:** 4/5 folds positive, never a real loss, low magnitude.
+- Caveats: the router's season→strategy map is **in-sample** (derive per-fold for a fair test), and
+  it still has losing folds. Real lead, not a finished edge.
+
+### Router refinements to try next
+- Derive the season→strategy mapping from each train fold only (kill the in-sample bias).
+- Use the high-vol axis in routing (data: breakout −28 in bull+highvol but kalman +107 there).
+- Size positions by regime confidence; sit out UNKNOWN/transition bars.
+
 ## Guardrail principles adopted (from r/ai_trading trust discussions)
 
 - Limits live in the **execution layer**, never a prompt. (We have no LLM in the loop — enforced in

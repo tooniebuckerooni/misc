@@ -17,17 +17,17 @@ from .config.settings import Mode, get_settings
 from .data.feed import DataFeed
 from .data.store import Store
 from .scanner.screener import DEFAULT_UNIVERSE
-from .strategy.bracket_breakout import BracketBreakout
+from .strategy.registry import build_strategy
 from .trackers.metrics import compute_metrics, format_metrics
 
 
-def _strategy(s):
-    return BracketBreakout(
-        channel_bars=s.breakout_channel_bars,
-        atr_bars=s.atr_bars,
-        tp_atr_mult=s.take_profit_atr_mult,
-        sl_atr_mult=s.stop_loss_atr_mult,
-    )
+def _apply_overrides(s, args):
+    """Let CLI flags override settings so each strategy can have its own pipeline."""
+    if getattr(args, "timeframe", None):
+        s.timeframe = args.timeframe
+    if getattr(args, "pairs", None):
+        s.pair_universe = args.pairs
+    return s
 
 
 def _kraken(s, with_keys: bool):
@@ -43,7 +43,7 @@ def _universe(s):
 
 
 def cmd_backtest(args) -> int:
-    s = get_settings()
+    s = _apply_overrides(get_settings(), args)
     store = Store(s.db_path)
     broker = _kraken(s, with_keys=False)
     feed = DataFeed(broker, store)
@@ -59,20 +59,21 @@ def cmd_backtest(args) -> int:
 
     from .engine.backtest import Backtester
 
-    bt = Backtester(store, _strategy(s), s, universe, s.timeframe)
-    print("\nRunning backtest…\n")
+    bt = Backtester(store, build_strategy(args.strategy, s), s, universe, s.timeframe)
+    print(f"\nRunning backtest (strategy={args.strategy})…\n")
     print(format_metrics(bt.run()))
     return 0
 
 
 def cmd_paper(args) -> int:
-    s = get_settings()
+    s = _apply_overrides(get_settings(), args)
     store = Store(s.db_path)
     feed = DataFeed(_kraken(s, with_keys=False), store)
     from .engine.paper import PaperEngine
 
-    eng = PaperEngine(feed, store, _strategy(s), s)
-    print(f"PAPER mode | working={eng.cm.working:.2f} vault={eng.cm.vault:.2f} "
+    eng = PaperEngine(feed, store, build_strategy(args.strategy, s), s)
+    print(f"PAPER | strategy={args.strategy} tf={s.timeframe} "
+          f"| working={eng.cm.working:.2f} vault={eng.cm.vault:.2f} "
           f"| poll={args.poll}s | Ctrl-C to stop")
     if args.once:
         print(eng.run_once())
@@ -97,12 +98,13 @@ def cmd_live(args) -> int:
         print("    Ensure your API key is TRADE-ONLY (no withdrawal) and caps are set.")
         return 1
 
+    s = _apply_overrides(s, args)
     store = Store(s.db_path)
     broker = _kraken(s, with_keys=True)
     feed = DataFeed(broker, store)
     from .engine.live import LiveEngine
 
-    eng = LiveEngine(broker, feed, store, _strategy(s), s)
+    eng = LiveEngine(broker, feed, store, build_strategy(args.strategy, s), s)
     print(f"🔴 LIVE | working={eng.cm.working:.2f} vault={eng.cm.vault:.2f} "
           f"| poll={args.poll}s | max/pos={s.max_position_abs} | Ctrl-C to stop")
     try:
@@ -173,18 +175,26 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="cryptobot", description="Fee-aware Kraken trading bot")
     sub = p.add_subparsers(dest="cmd", required=True)
 
+    def _common(p):
+        p.add_argument("--strategy", default="router", help="breakout | meanrev | kalman | router")
+        p.add_argument("--timeframe", default=None, help="override timeframe, e.g. 1d, 4h, 15m")
+        p.add_argument("--pairs", nargs="*", default=None, help="override the pair universe")
+
     b = sub.add_parser("backtest", help="prove the edge on history")
     b.add_argument("--bars", type=int, default=1500)
+    _common(b)
     b.set_defaults(func=cmd_backtest)
 
     pa = sub.add_parser("paper", help="paper-trade on live prices")
     pa.add_argument("--poll", type=int, default=60)
     pa.add_argument("--once", action="store_true")
+    _common(pa)
     pa.set_defaults(func=cmd_paper)
 
     li = sub.add_parser("live", help="REAL orders (capped)")
     li.add_argument("--poll", type=int, default=60)
     li.add_argument("--yes", action="store_true")
+    _common(li)
     li.set_defaults(func=cmd_live)
 
     st = sub.add_parser("status", help="print state + metrics")
