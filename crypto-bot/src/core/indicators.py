@@ -55,6 +55,113 @@ def stdev(bars: list[OHLCVBar], period: int) -> float | None:
     return var ** 0.5
 
 
+def kalman(bars: list[OHLCVBar], q: float = 0.001, r: float = 0.1) -> list[float]:
+    """1-D constant-position Kalman smoother over closes. Lower q / higher r = smoother."""
+    if not bars:
+        return []
+    x = bars[0].close
+    p = 1.0
+    out: list[float] = []
+    for b in bars:
+        p += q                       # predict
+        k = p / (p + r)              # Kalman gain
+        x = x + k * (b.close - x)    # update
+        p = (1 - k) * p
+        out.append(x)
+    return out
+
+
+def _wilder_atr_series(bars: list[OHLCVBar], period: int) -> list[float | None]:
+    n = len(bars)
+    tr = [0.0] * n
+    for i in range(1, n):
+        h, l, pc = bars[i].high, bars[i].low, bars[i - 1].close
+        tr[i] = max(h - l, abs(h - pc), abs(l - pc))
+    atr: list[float | None] = [None] * n
+    if n <= period:
+        return atr
+    atr[period] = sum(tr[1:period + 1]) / period
+    for i in range(period + 1, n):
+        atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period
+    return atr
+
+
+def supertrend(
+    bars: list[OHLCVBar], period: int = 10, mult: float = 3.0,
+    source_vals: list[float] | None = None,
+) -> tuple[list[int], list[float | None]]:
+    """Return (direction, line). direction is +1 (bull) / -1 (bear) / 0 (warmup) per bar.
+
+    `source_vals` lets you run SuperTrend on a smoothed price (e.g. the Kalman line).
+    """
+    n = len(bars)
+    src = source_vals if source_vals is not None else [(b.high + b.low) / 2 for b in bars]
+    close = [b.close for b in bars]
+    atr = _wilder_atr_series(bars, period)
+    direction = [0] * n
+    line: list[float | None] = [None] * n
+    fu = fl = None
+    for i in range(n):
+        if atr[i] is None:
+            continue
+        bu = src[i] + mult * atr[i]
+        bl = src[i] - mult * atr[i]
+        if fu is None:
+            fu, fl = bu, bl
+            direction[i] = 1
+            line[i] = fl
+            continue
+        fu = bu if (bu < fu or close[i - 1] > fu) else fu
+        fl = bl if (bl > fl or close[i - 1] < fl) else fl
+        if close[i] > fu:
+            direction[i] = 1
+        elif close[i] < fl:
+            direction[i] = -1
+        else:
+            direction[i] = direction[i - 1]
+        line[i] = fl if direction[i] == 1 else fu
+    return direction, line
+
+
+def adx(bars: list[OHLCVBar], period: int = 14) -> float | None:
+    """Wilder's ADX (latest value). Higher = stronger trend, direction-agnostic."""
+    n = len(bars)
+    if n < 2 * period + 2:
+        return None
+    plus_dm = [0.0] * n
+    minus_dm = [0.0] * n
+    tr = [0.0] * n
+    for i in range(1, n):
+        up = bars[i].high - bars[i - 1].high
+        dn = bars[i - 1].low - bars[i].low
+        plus_dm[i] = up if (up > dn and up > 0) else 0.0
+        minus_dm[i] = dn if (dn > up and dn > 0) else 0.0
+        h, l, pc = bars[i].high, bars[i].low, bars[i - 1].close
+        tr[i] = max(h - l, abs(h - pc), abs(l - pc))
+
+    def wilder(arr: list[float]) -> list[float | None]:
+        sm: list[float | None] = [None] * n
+        sm[period] = sum(arr[1:period + 1])
+        for i in range(period + 1, n):
+            sm[i] = sm[i - 1] - sm[i - 1] / period + arr[i]
+        return sm
+
+    tr_s, pd_s, md_s = wilder(tr), wilder(plus_dm), wilder(minus_dm)
+    dx_vals: list[float] = []
+    for i in range(period, n):
+        if tr_s[i] and tr_s[i] > 0:
+            pdi = 100 * pd_s[i] / tr_s[i]
+            mdi = 100 * md_s[i] / tr_s[i]
+            denom = pdi + mdi
+            dx_vals.append(100 * abs(pdi - mdi) / denom if denom > 0 else 0.0)
+    if len(dx_vals) < period:
+        return None
+    a = sum(dx_vals[:period]) / period
+    for v in dx_vals[period:]:
+        a = (a * (period - 1) + v) / period
+    return a
+
+
 def returns_std(bars: list[OHLCVBar], period: int) -> float | None:
     """Std-dev of per-bar returns — a normalized volatility gauge for ranking setups."""
     if len(bars) < period + 1:
