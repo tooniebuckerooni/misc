@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     starting_working_capital: float = 200.0
     sweep_trigger_multiple: float = 2.0  # sweep when working equity >= multiple * base
     sweep_profit_fraction: float = 0.5   # fraction of profit moved to the BTC vault
+    vault_symbol: str = "BTC/USD"        # live: swept profit is used to buy BTC on this market
 
     # ---- Risk guardrails ---------------------------------------------------
     max_open_positions: int = 3
