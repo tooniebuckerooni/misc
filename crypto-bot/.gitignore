@@ -7,6 +7,11 @@
 *.sqlite
 *.sqlite3
 data/*.db
+# SQLite side-car files
+*.db-journal
+*.db-wal
+*.db-shm
+*-journal
 KILL_SWITCH
 *.log
 logs/

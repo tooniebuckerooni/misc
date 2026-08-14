@@ -19,7 +19,7 @@ walk-forward folds — never a single lucky split.
 | Breakout (Donchian + ATR brackets) | 1d & 4h | ☠️ Dead. Negative OOS everywhere (PF 0.5–0.9). |
 | Mean-reversion | 4h | ☠️ Dead. Hundreds of trades, net negative (−38 to −131). |
 | **Mean-reversion** | **1d** | 🌱 **Lead.** Positive in 4/5 folds, +68 total, worst fold −0.78. |
-| Kalman-SuperTrend + ADX | 1d | Thin / inconclusive (rare signal). |
+| Kalman-SuperTrend + ADX | 1d | Not robust (0 at ≥4/5 folds). A few configs lean positive (+39, worst −9) but most have big worst folds (−41 to −57) — regime-dependent, thin. |
 
 ## The lead worth nurturing (KEEP THIS)
 
