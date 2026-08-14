@@ -1,0 +1,33 @@
+# Secrets — NEVER commit real keys
+.env
+*.key
+
+# Local data / state
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+KILL_SWITCH
+*.log
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

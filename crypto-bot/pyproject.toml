@@ -1,0 +1,37 @@
+[project]
+name = "crypto-bot"
+version = "0.1.0"
+description = "Fee-aware crypto trading bot for Kraken: scanner-driven bracket trades, working-capital churn with a BTC-vault profit sweep, and a backtest -> paper -> capped-live pipeline."
+requires-python = ">=3.11"
+dependencies = [
+    "ccxt>=4.2",
+    "pandas>=2.1",
+    "numpy>=1.26",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "python-dotenv>=1.0",
+    "apscheduler>=3.10",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dashboard = ["streamlit>=1.33", "plotly>=5.20"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
+
+[project.scripts]
+cryptobot = "src.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
