@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from .config.settings import Mode, get_settings
+from .config.settings import DATA_DIR, PROJECT_ROOT, Mode, get_settings
 from .data.feed import DataFeed
 from .data.store import Store
 from .scanner.screener import DEFAULT_UNIVERSE
@@ -22,11 +22,17 @@ from .trackers.metrics import compute_metrics, format_metrics
 
 
 def _apply_overrides(s, args):
-    """Let CLI flags override settings so each strategy can have its own pipeline."""
+    """Let CLI flags override settings so each strategy runs as its own isolated pipeline."""
     if getattr(args, "timeframe", None):
         s.timeframe = args.timeframe
     if getattr(args, "pairs", None):
         s.pair_universe = args.pairs
+    # Isolate state per pipeline: own DB + own kill switch. Defaults to the strategy name so two
+    # strategies never collide on the same paper/live ledger.
+    name = getattr(args, "pipeline", None) or getattr(args, "strategy", None) or "default"
+    s.db_path = DATA_DIR / f"{name}.db"
+    s.kill_switch_file = PROJECT_ROOT / f"KILL_SWITCH_{name}"
+    s.ensure_dirs()
     return s
 
 
@@ -115,7 +121,7 @@ def cmd_live(args) -> int:
 
 
 def cmd_status(args) -> int:
-    s = get_settings()
+    s = _apply_overrides(get_settings(), args)
     store = Store(s.db_path)
     mode = args.mode
     cap = store.get_state(f"capital:{mode}") or {}
@@ -142,7 +148,7 @@ def cmd_status(args) -> int:
 
 
 def cmd_kill(args) -> int:
-    s = get_settings()
+    s = _apply_overrides(get_settings(), args)
     store = Store(s.db_path)
     from .risk.guardrails import RiskManager
 
@@ -153,7 +159,7 @@ def cmd_kill(args) -> int:
 
 
 def cmd_unkill(args) -> int:
-    s = get_settings()
+    s = _apply_overrides(get_settings(), args)
     store = Store(s.db_path)
     from .risk.guardrails import RiskManager
 
@@ -164,11 +170,15 @@ def cmd_unkill(args) -> int:
 
 
 def cmd_dashboard(args) -> int:
+    import os
     import subprocess
     from pathlib import Path
 
     app = Path(__file__).resolve().parent / "app" / "dashboard.py"
-    return subprocess.call(["streamlit", "run", str(app)])
+    env = dict(os.environ)
+    if getattr(args, "pipeline", None):
+        env["BOT_PIPELINE"] = args.pipeline  # dashboard reads this to pick the right DB
+    return subprocess.call(["streamlit", "run", str(app)], env=env)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -176,9 +186,12 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def _common(p):
-        p.add_argument("--strategy", default="router", help="breakout | meanrev | kalman | router")
+        p.add_argument("--strategy", default="meanrev",
+                       help="breakout | meanrev | kalman | momentum | router")
         p.add_argument("--timeframe", default=None, help="override timeframe, e.g. 1d, 4h, 15m")
         p.add_argument("--pairs", nargs="*", default=None, help="override the pair universe")
+        p.add_argument("--pipeline", default=None,
+                       help="isolated state name (own DB + kill switch); defaults to the strategy")
 
     b = sub.add_parser("backtest", help="prove the edge on history")
     b.add_argument("--bars", type=int, default=1500)
@@ -199,11 +212,18 @@ def main(argv: list[str] | None = None) -> int:
 
     st = sub.add_parser("status", help="print state + metrics")
     st.add_argument("--mode", default="paper")
+    st.add_argument("--pipeline", default=None, help="pipeline whose state to read")
     st.set_defaults(func=cmd_status)
 
-    sub.add_parser("kill", help="engage kill switch").set_defaults(func=cmd_kill)
-    sub.add_parser("unkill", help="clear kill switch").set_defaults(func=cmd_unkill)
-    sub.add_parser("dashboard", help="launch Streamlit monitor").set_defaults(func=cmd_dashboard)
+    ki = sub.add_parser("kill", help="engage kill switch")
+    ki.add_argument("--pipeline", default=None)
+    ki.set_defaults(func=cmd_kill)
+    un = sub.add_parser("unkill", help="clear kill switch")
+    un.add_argument("--pipeline", default=None)
+    un.set_defaults(func=cmd_unkill)
+    da = sub.add_parser("dashboard", help="launch Streamlit monitor")
+    da.add_argument("--pipeline", default=None)
+    da.set_defaults(func=cmd_dashboard)
 
     args = p.parse_args(argv)
     return args.func(args)

@@ -9,19 +9,23 @@ the kill-switch state. Read-only: it never places or changes orders.
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 
 import pandas as pd
 import streamlit as st
 
-from ..config.settings import get_settings
+from ..config.settings import DATA_DIR, get_settings
 from ..data.store import Store
 from ..trackers.metrics import compute_metrics
 
 st.set_page_config(page_title="crypto-bot", layout="wide")
 
 s = get_settings()
-store = Store(s.db_path)
+# Honor the pipeline chosen by `cli dashboard --pipeline NAME` so we read its isolated DB.
+_pipeline = os.environ.get("BOT_PIPELINE")
+_db = (DATA_DIR / f"{_pipeline}.db") if _pipeline else s.db_path
+store = Store(_db)
 
 st.title("crypto-bot — scoreboard")
 st.caption("BTC is the vault. Working capital churns. The gate is: gains > losses, after fees.")
