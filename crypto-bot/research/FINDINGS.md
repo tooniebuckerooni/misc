@@ -150,6 +150,26 @@ stop-out costs a fixed % of equity) + **portfolio-heat cap** (bound total open r
 total-risk cap* — ret/dd ~doubles (2.2→4.3) and worst fold drops from −35% to −6% (sleepable). Absolute
 return scales with capital, not bet size. Defaults set to risk 1% / heat 10% / max 10 positions.
 
+## Second-lead hunt: cross-sectional momentum — doesn't work
+
+Built a relative-strength/momentum strategy (buy strongest trailing-return movers in an uptrend;
+scanner ranks cross-sectionally). Walk-forward on 20 pairs (new risk defaults): **+18 total, 1/5
+folds**, saved only by one lucky bull fold (+118); negative in every season it trades (bull −25 /
+358 trades, range −40 / 187). Dead, like breakout.
+
+### Leads scoreboard (wide daily, risk-sized, 5 folds)
+| Strategy | Total | Folds+ | Worst | Ret/DD |
+|---|---|---|---|---|
+| **meanrev** | +53 | **4/5** | −12 | **4.33** |
+| kalman | +35 | 2/5 | −16 | 2.22 |
+| momentum | +18 | 1/5 | −63 | 0.29 |
+| breakout | −54 | 2/5 | −59 | dead |
+
+**Conclusion: there is one robust horse — daily mean-reversion.** The whole trend/momentum-long
+family (breakout, momentum, mostly kalman) is weak-to-dead on crypto majors after fees. We tested
+for "several leads" honestly; the market only gave us one. Deployable system = mean-reversion +
+risk-based sizing + heat cap.
+
 ## Guardrail principles adopted (from r/ai_trading trust discussions)
 
 - Limits live in the **execution layer**, never a prompt. (We have no LLM in the loop — enforced in

@@ -13,9 +13,10 @@ from .base import Strategy
 from .bracket_breakout import BracketBreakout
 from .kalman_supertrend import KalmanSuperTrend
 from .mean_reversion import MeanReversion
+from .momentum import Momentum
 from .router import RegimeRouter
 
-STRATEGY_NAMES = ["breakout", "meanrev", "kalman", "router"]
+STRATEGY_NAMES = ["breakout", "meanrev", "kalman", "momentum", "router"]
 
 
 def build_strategy(name: str, settings: Settings) -> Strategy:
@@ -34,6 +35,8 @@ def build_strategy(name: str, settings: Settings) -> Strategy:
         return KalmanSuperTrend(
             st_mult=3.0, adx_threshold=25, tp_atr_mult=3.0, sl_atr_mult=1.0, require_flip=True
         )
+    if name == "momentum":
+        return Momentum(mom_bars=30, trend_ma=50, min_return=0.10, tp_atr_mult=3.0, sl_atr_mult=2.0)
     if name == "router":
         # Season label -> specialist, from the regime analysis (FINDINGS.md).
         mapping = {
