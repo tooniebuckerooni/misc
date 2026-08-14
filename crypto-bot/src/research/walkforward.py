@@ -45,21 +45,24 @@ def _range(store, pairs, tf):
     return (lo, hi) if lo is not None else None
 
 
-def run(pairs, timeframes, bars, folds):
+def run(pairs, timeframes, bars, folds, no_backfill=False):
     s = Settings(_env_file=None)
     s.db_path = s.db_path.parent / "research.db"
     s.ensure_dirs()
     store = Store(s.db_path)
-    from ..brokers.kraken import KrakenBroker
+    feed = None
+    if not no_backfill:
+        from ..brokers.kraken import KrakenBroker
 
-    feed = DataFeed(KrakenBroker(), store)
+        feed = DataFeed(KrakenBroker(), store)
 
     for tf in timeframes:
-        for p in pairs:
-            try:
-                feed.backfill(p, tf, bars)
-            except Exception:  # noqa: BLE001
-                pass
+        if feed is not None:
+            for p in pairs:
+                try:
+                    feed.backfill(p, tf, bars)
+                except Exception:  # noqa: BLE001
+                    pass
         rng = _range(store, pairs, tf)
         if not rng:
             print(f"[{tf}] no data")
@@ -106,8 +109,10 @@ def main(argv=None):
     ap.add_argument("--tfs", nargs="*", default=["4h", "1d"])
     ap.add_argument("--bars", type=int, default=720)
     ap.add_argument("--folds", type=int, default=4)
+    ap.add_argument("--no-backfill", action="store_true",
+                    help="use cached research.db candles (e.g. deep history from ingest)")
     args = ap.parse_args(argv)
-    run(args.pairs, args.tfs, args.bars, args.folds)
+    run(args.pairs, args.tfs, args.bars, args.folds, no_backfill=args.no_backfill)
     return 0
 
 

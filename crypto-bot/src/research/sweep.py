@@ -58,25 +58,31 @@ def _ts_range(store: Store, pairs: list[str], tf: str) -> tuple[int, int] | None
     return lo, hi
 
 
-def run_sweep(pairs: list[str], timeframes: list[str], bars: int, split: float = 0.7) -> list[dict]:
+def run_sweep(
+    pairs: list[str], timeframes: list[str], bars: int, split: float = 0.7,
+    no_backfill: bool = False,
+) -> list[dict]:
     s = Settings(_env_file=None)
     s.db_path = s.db_path.parent / "research.db"
     s.ensure_dirs()
     store = Store(s.db_path)
 
-    from ..brokers.kraken import KrakenBroker
+    feed = None
+    if not no_backfill:
+        from ..brokers.kraken import KrakenBroker
 
-    feed = DataFeed(KrakenBroker(), store)
+        feed = DataFeed(KrakenBroker(), store)
 
     results: list[dict] = []
     for tf in timeframes:
         print(f"\n=== timeframe {tf} ===")
-        for p in pairs:
-            try:
-                n = feed.backfill(p, tf, bars)
-                print(f"  backfilled {p:<10} {n}")
-            except Exception as e:  # noqa: BLE001
-                print(f"  {p:<10} FAILED {type(e).__name__}: {str(e)[:80]}")
+        if feed is not None:
+            for p in pairs:
+                try:
+                    n = feed.backfill(p, tf, bars)
+                    print(f"  backfilled {p:<10} {n}")
+                except Exception as e:  # noqa: BLE001
+                    print(f"  {p:<10} FAILED {type(e).__name__}: {str(e)[:80]}")
 
         rng = _ts_range(store, pairs, tf)
         if not rng:
@@ -112,9 +118,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--tfs", nargs="*", default=DEFAULT_TFS)
     ap.add_argument("--bars", type=int, default=720)
     ap.add_argument("--top", type=int, default=15)
+    ap.add_argument("--no-backfill", action="store_true",
+                    help="use cached research.db candles (e.g. deep history from ingest)")
     args = ap.parse_args(argv)
 
-    results = run_sweep(args.pairs, args.tfs, args.bars)
+    results = run_sweep(args.pairs, args.tfs, args.bars, no_backfill=args.no_backfill)
 
     # Robust = passes the gate on BOTH train and test (not overfit).
     robust = [r for r in results if r["tr_gate"] and r["te_gate"] and r["te_n"] >= 5]

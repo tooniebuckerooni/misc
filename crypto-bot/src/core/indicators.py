@@ -18,12 +18,15 @@ def true_ranges(bars: list[OHLCVBar]) -> list[float]:
 
 
 def atr(bars: list[OHLCVBar], period: int) -> float | None:
-    """Average True Range over the last `period` completed bars (simple mean)."""
-    trs = true_ranges(bars)
-    if len(trs) < period:
+    """Average True Range over the last `period` completed bars (simple mean).
+
+    Only looks at the tail so it stays O(period), not O(n) — this matters when the
+    backtester calls it once per bar over tens of thousands of bars of deep history.
+    """
+    if len(bars) < period + 1:
         return None
-    window = trs[-period:]
-    return sum(window) / period
+    trs = true_ranges(bars[-(period + 1):])
+    return sum(trs) / period
 
 
 def donchian(bars: list[OHLCVBar], period: int) -> tuple[float, float] | None:
