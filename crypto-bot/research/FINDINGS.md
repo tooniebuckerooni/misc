@@ -99,6 +99,16 @@ and tests on the untouched fold:
 - Size positions by regime confidence; sit out UNKNOWN/transition bars.
 - More data/pairs so early folds have enough history to learn a full map (fold 1 only saw "bull").
 
+## Intraday (4h) verdict: no season works
+
+Ran the same per-season analysis on 4h (`regime_analysis --tfs 4h`). **Every strategy is negative in
+every season** — not one positive bucket. At 4h the strategies trade ~5–6× more often (breakout: 495
+range trades vs ~81 on daily) and the edge is buried under spread + fees + noise.
+
+**Conclusion: the edge lives on the DAILY timeframe. Intraday does not work for us — stop hunting
+shorter timeframes.** Concentrate research on daily (and the regime router there). Shorter = worse,
+decisively, at these costs and capital.
+
 ## Guardrail principles adopted (from r/ai_trading trust discussions)
 
 - Limits live in the **execution layer**, never a prompt. (We have no LLM in the loop — enforced in
