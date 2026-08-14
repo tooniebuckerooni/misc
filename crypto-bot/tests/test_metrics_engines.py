@@ -82,6 +82,23 @@ def test_paper_engine_enter_then_tp(tmp_path, bars, tight_ticker):
     assert trades[0].net_pnl != 0.0
 
 
+def test_paper_engine_rejects_stale_feed(tmp_path, bars):
+    # Ticker timestamped far in the past relative to the engine clock -> fail closed, no entry.
+    from src.core.types import Ticker
+
+    stale = Ticker("ETH/USD", 105.98, 106.02, 106.0, ts=1)  # ancient
+    broker = FakeBroker({"ETH/USD": bars}, stale)
+    st = Store(tmp_path / "t.db")
+    feed = DataFeed(broker, st)
+    s = _settings(tmp_path)
+    strat = BracketBreakout()
+    sc = Screener(feed, strat, universe=["ETH/USD"], timeframe="15m", lookback=200, top_n=5)
+    eng = PaperEngine(feed, st, strat, s, screener=sc)
+    r = eng.run_once(now_ts=40 * 900_000)  # now is ~yr 0 but ts=1 => wildly stale
+    assert len(eng.positions) == 0
+    assert any("stale" in a for a in r["actions"])
+
+
 def test_paper_engine_kill_flattens(tmp_path, bars, tight_ticker):
     broker = FakeBroker({"ETH/USD": bars}, tight_ticker)
     st = Store(tmp_path / "t.db")

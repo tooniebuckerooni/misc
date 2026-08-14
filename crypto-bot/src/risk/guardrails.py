@@ -74,6 +74,21 @@ class RiskManager:
         drawdown = (start - working_equity) / start
         return drawdown >= self.max_daily_loss_frac
 
+    # ---- Data freshness (fail closed on a frozen feed) --------------------
+    @staticmethod
+    def is_stale(now_ms: int, data_ts: int | None, max_age_ms: int) -> bool:
+        """True if the price data is missing or older than max_age_ms.
+
+        A frozen or lagging feed is a classic way to trade on fiction; we reject rather than
+        guess. `data_ts <= 0` is treated as unknown-and-usable only because some backtest paths
+        carry no timestamp — live tickers always carry one.
+        """
+        if data_ts is None:
+            return True
+        if data_ts <= 0:
+            return False
+        return (now_ms - data_ts) > max_age_ms
+
     # ---- Position sizing / gate -------------------------------------------
     def evaluate_entry(
         self, ts: int, open_positions: int, working_equity: float, entry_price: float

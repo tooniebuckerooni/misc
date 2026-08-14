@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     max_position_abs: float = 100.0      # hard absolute cap per position
     max_daily_loss_frac: float = 0.10    # halt for the day after this drawdown of working equity
     min_notional: float = 5.0            # skip trades smaller than this (exchange minimums / dust)
+    max_staleness_bars: int = 3          # reject entries if the price feed is older than this many bars
 
     # ---- Backtest realism --------------------------------------------------
     # OHLCV has no bid/ask, so we assume a spread when simulating fills. Keep it honest.

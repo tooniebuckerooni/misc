@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from ..capital.manager import CapitalManager
 from ..config.settings import Settings
 from ..core.types import Position, Side, TradeRecord
-from ..data.feed import DataFeed
+from ..data.feed import DataFeed, timeframe_ms
 from ..data.store import Store
 from ..risk.guardrails import RiskManager
 from ..scanner.screener import Screener
@@ -123,10 +123,15 @@ class PaperEngine:
             return {"ts": now, "halted": "daily_loss", "actions": actions}
 
         # 3) Look for new entries.
+        max_age_ms = timeframe_ms(self.s.timeframe) * self.s.max_staleness_bars
         for cand in self.screener.scan(exclude=set(self.positions.keys())):
             if len(self.positions) >= self.s.max_open_positions:
                 break
             b = cand.bracket
+            # Fail closed on a frozen/lagging price feed.
+            if self.rm.is_stale(now, cand.ticker.ts, max_age_ms):
+                actions.append(f"SKIP {b.symbol} (stale feed)")
+                continue
             decision = self.rm.evaluate_entry(now, len(self.positions), self.cm.working, cand.ticker.ask)
             if not decision.allowed:
                 continue

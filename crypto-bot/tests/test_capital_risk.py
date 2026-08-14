@@ -49,6 +49,17 @@ def test_daily_loss_halt(tmp_path):
     assert rm.daily_loss_halted(2000, 260.0) is True   # -13% > 10%
 
 
+def test_is_stale_fails_closed(tmp_path):
+    st = Store(tmp_path / "t.db")
+    rm = RiskManager(st, "paper", kill_switch_file=tmp_path / "K")
+    max_age = 3 * 900_000  # 3 x 15m bars
+    now = 100 * 900_000
+    assert rm.is_stale(now, None, max_age) is True           # missing -> stale
+    assert rm.is_stale(now, now - 10 * 900_000, max_age) is True   # 10 bars old -> stale
+    assert rm.is_stale(now, now - 1 * 900_000, max_age) is False   # 1 bar old -> fresh
+    assert rm.is_stale(now, 0, max_age) is False              # unknown ts -> usable (backtest path)
+
+
 def test_kill_switch(tmp_path):
     st = Store(tmp_path / "t.db")
     ksf = tmp_path / "K"
