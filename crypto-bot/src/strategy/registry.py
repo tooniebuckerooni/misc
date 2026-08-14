@@ -35,11 +35,11 @@ def build_strategy(name: str, settings: Settings) -> Strategy:
             st_mult=3.0, adx_threshold=25, tp_atr_mult=3.0, sl_atr_mult=1.0, require_flip=True
         )
     if name == "router":
-        # Season -> specialist, from the regime analysis (FINDINGS.md).
+        # Season label -> specialist, from the regime analysis (FINDINGS.md).
         mapping = {
-            Season.BULL: build_strategy("kalman", settings),    # trend up -> trend-follow
-            Season.RANGE: build_strategy("breakout", settings),  # chop -> breakout
-            Season.BEAR: build_strategy("meanrev", settings),    # downtrend/crash -> buy dips
+            Season.BULL.value: build_strategy("kalman", settings),    # trend up -> trend-follow
+            Season.RANGE.value: build_strategy("breakout", settings),  # chop -> breakout
+            Season.BEAR.value: build_strategy("meanrev", settings),    # downtrend/crash -> buy dips
         }
         return RegimeRouter(RegimeClassifier(), mapping)
     raise ValueError(f"Unknown strategy '{name}'. Choose from: {', '.join(STRATEGY_NAMES)}")

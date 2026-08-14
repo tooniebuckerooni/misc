@@ -76,10 +76,28 @@ Read honestly:
 - Caveats: the router's season→strategy map is **in-sample** (derive per-fold for a fair test), and
   it still has losing folds. Real lead, not a finished edge.
 
-### Router refinements to try next
-- Derive the season→strategy mapping from each train fold only (kill the in-sample bias).
-- Use the high-vol axis in routing (data: breakout −28 in bull+highvol but kalman +107 there).
+### Honest router validation (map learned from PAST only)
+
+`src/research/router_validation.py` re-derives the season→strategy map from each fold's *past* data
+and tests on the untouched fold:
+
+| Fold | Learned map | OOS net | Trades |
+|---|---|---|---|
+| 1 | bull→kalman | −6.5 | 3 |
+| 2 | bull→kalman, range→breakout | +34.4 | 19 |
+| 3 | bear→meanrev, bull→kalman, range→breakout | +42.1 | 18 |
+| 4 | full map | −6.9 | 18 |
+| **Total** | | **+63**, positive 2/4 | |
+
+- **The specialization is real:** the same map self-assembles from past data each fold (bull→kalman,
+  range→breakout, bear→meanrev). Not random.
+- **But not yet reliable:** +63 total with contained losses (−6.5, −6.9) but only 2/4 folds positive.
+  Weaker than the in-sample +111 — the honest test removed the optimism, as it should.
+
+### Router refinements still to try
+- Use the high-vol axis in routing (router now supports label-keyed overrides).
 - Size positions by regime confidence; sit out UNKNOWN/transition bars.
+- More data/pairs so early folds have enough history to learn a full map (fold 1 only saw "bull").
 
 ## Guardrail principles adopted (from r/ai_trading trust discussions)
 
