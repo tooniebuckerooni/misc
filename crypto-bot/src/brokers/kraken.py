@@ -36,6 +36,16 @@ class KrakenBroker(BrokerAdapter):
                 "enableRateLimit": enable_rate_limit,
             }
         )
+        # Respect standard proxy / CA-bundle env vars so the bot works behind a
+        # corporate or agent proxy without code changes. No effect on a normal machine.
+        import os
+
+        proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+        if proxy:
+            self._ex.proxies = {"http": proxy, "https": proxy}
+        ca = os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE")
+        if ca:
+            self._ex.verify = ca
         self._markets_loaded = False
 
     def _ensure_markets(self) -> None:
