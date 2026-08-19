@@ -1,10 +1,13 @@
-"""Local Streamlit dashboard — the honest scoreboard.
+"""Local Streamlit dashboard — the honest scoreboard, now fleet-aware.
 
-Run with:  python -m src.cli dashboard   (or: streamlit run src/app/dashboard.py)
+Two views, chosen in the sidebar:
+  - **Fleet overview**: every pipeline (each strategy = its own DB) compared side by side, so you can
+    watch several leads at once and see which are actually working.
+  - **Single pipeline**: the full detail for one — buckets vs "just hold", trades, fees, sweeps.
 
-Shows both buckets (working capital + BTC vault) against a "just hold" baseline, open
-positions, the full trade log, cumulative fees, net-expectancy metrics, sweep events, and
-the kill-switch state. Read-only: it never places or changes orders.
+Run:  python -m src.cli dashboard              (fleet overview)
+      python -m src.cli dashboard --pipeline meanrev   (jump straight to one)
+Read-only: it never places or changes orders.
 """
 
 from __future__ import annotations
@@ -20,31 +23,93 @@ from ..data.store import Store
 from ..trackers.metrics import compute_metrics
 
 st.set_page_config(page_title="crypto-bot", layout="wide")
+S = get_settings()
 
-s = get_settings()
-# Honor the pipeline chosen by `cli dashboard --pipeline NAME` so we read its isolated DB.
-_pipeline = os.environ.get("BOT_PIPELINE")
-_db = (DATA_DIR / f"{_pipeline}.db") if _pipeline else s.db_path
-store = Store(_db)
+
+def discover_pipelines() -> list[str]:
+    """Every pipeline is a DB in the data dir; hide the research archive."""
+    names = sorted(p.stem for p in DATA_DIR.glob("*.db"))
+    return [n for n in names if n != "research"]
+
+
+def _pipeline_metrics(name: str, mode: str):
+    store = Store(DATA_DIR / f"{name}.db")
+    cap = store.get_state(f"capital:{mode}") or {}
+    trades = store.get_trades(mode)
+    curve = store.get_equity_curve(mode)
+    positions = store.get_state(f"positions:{mode}", []) or []
+    killed = bool(store.get_state("kill_switch", False))
+    m = compute_metrics(trades, curve, float(cap.get("working", 0.0)), float(cap.get("vault", 0.0)))
+    last = trades[-1].closed_ts if trades else None
+    return store, cap, trades, curve, positions, killed, m, last
+
+
+# ---- Sidebar: mode + view selection ---------------------------------------
+pipelines = discover_pipelines()
+mode = st.sidebar.selectbox("Mode", ["paper", "backtest", "live"], index=0)
+forced = os.environ.get("BOT_PIPELINE")
+options = ["— Fleet overview —"] + pipelines
+default_idx = options.index(forced) if forced in pipelines else 0
+choice = st.sidebar.selectbox("View", options, index=default_idx)
 
 st.title("crypto-bot — scoreboard")
 st.caption("BTC is the vault. Working capital churns. The gate is: gains > losses, after fees.")
 
-mode = st.sidebar.selectbox("Mode", ["paper", "backtest", "live"], index=0)
-kill = bool(store.get_state("kill_switch", False)) or s.kill_switch_file.exists()
-st.sidebar.markdown(f"**Kill switch:** {'🔴 ENGAGED' if kill else '🟢 clear'}")
 
-cap = store.get_state(f"capital:{mode}") or {}
-trades = store.get_trades(mode)
-curve = store.get_equity_curve(mode)
-sweeps = store.get_sweeps(mode)
-positions = store.get_state(f"positions:{mode}", []) or []
+# ===========================================================================
+# FLEET OVERVIEW
+# ===========================================================================
+if choice == "— Fleet overview —":
+    if not pipelines:
+        st.info("No pipelines yet. Start one, e.g.  "
+                "`python -m src.cli paper --strategy meanrev --pipeline meanrev`")
+        st.stop()
 
-working = float(cap.get("working", 0.0))
-vault = float(cap.get("vault", 0.0))
-m = compute_metrics(trades, curve, working, vault)
+    rows = []
+    curves = []
+    for name in pipelines:
+        _, cap, trades, curve, positions, killed, m, last = _pipeline_metrics(name, mode)
+        rows.append({
+            "pipeline": name,
+            "gate": "✅" if m.passes_gate else ("—" if m.n_trades == 0 else "❌"),
+            "working": round(m.final_working, 2),
+            "vault": round(m.final_vault, 2),
+            "total": round(m.total_value, 2),
+            "trades": m.n_trades,
+            "win%": round(m.win_rate * 100, 0),
+            "net": round(m.net_pnl, 2),
+            "maxDD%": round(m.max_drawdown * 100, 1),
+            "open": len(positions),
+            "kill": "🔴" if killed else "",
+            "last trade": (datetime.fromtimestamp(last / 1000, tz=timezone.utc)
+                           .strftime("%Y-%m-%d %H:%M") if last else "—"),
+        })
+        if curve:
+            df = pd.DataFrame(curve)
+            df["ts"] = pd.to_datetime(df["ts"], unit="ms")
+            df[name] = df["working_equity"] + df["vault"]
+            curves.append(df.set_index("ts")[[name]])
 
-# ---- Headline numbers -----------------------------------------------------
+    st.subheader(f"All pipelines — {mode}")
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    if curves:
+        st.subheader("Total value over time")
+        st.line_chart(pd.concat(curves, axis=1).ffill())
+    st.caption("Pick a pipeline in the sidebar to drill into its trades, fees, and sweeps.")
+    st.stop()
+
+
+# ===========================================================================
+# SINGLE PIPELINE DETAIL
+# ===========================================================================
+name = choice
+store, cap, trades, curve, positions, killed, m, _ = _pipeline_metrics(name, mode)
+working, vault = float(cap.get("working", 0.0)), float(cap.get("vault", 0.0))
+
+st.sidebar.markdown(f"**Pipeline:** `{name}`")
+st.sidebar.markdown(f"**Kill switch:** {'🔴 ENGAGED' if killed else '🟢 clear'}")
+
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Working capital", f"{working:,.2f}")
 c2.metric("BTC vault (banked)", f"{vault:,.2f}")
@@ -58,31 +123,28 @@ pf = "∞" if m.profit_factor == float("inf") else f"{m.profit_factor:.2f}"
 c7.metric("Profit factor", pf)
 c8.metric("Max drawdown", f"{m.max_drawdown:.1%}")
 
-# ---- Equity curve vs. "just hold" baseline --------------------------------
 st.subheader("Total value vs. doing nothing")
 if curve:
     df = pd.DataFrame(curve)
     df["ts"] = pd.to_datetime(df["ts"], unit="ms")
     df["total_value"] = df["working_equity"] + df["vault"]
-    df["hold_baseline"] = s.starting_working_capital
+    df["hold_baseline"] = S.starting_working_capital
     st.line_chart(df.set_index("ts")[["total_value", "hold_baseline"]])
 else:
     st.info("No equity snapshots yet — run backtest or paper first.")
 
-# ---- Open positions -------------------------------------------------------
 st.subheader(f"Open positions ({len(positions)})")
 if positions:
     st.dataframe(pd.DataFrame(positions), use_container_width=True, hide_index=True)
 else:
     st.write("None.")
 
-# ---- Fees + net --------------------------------------------------------
 c9, c10, c11 = st.columns(3)
 c9.metric("Gross profit", f"{m.gross_profit:,.2f}")
 c10.metric("Gross loss", f"{m.gross_loss:,.2f}")
 c11.metric("Cumulative fees", f"{m.fees_total:,.2f}")
 
-# ---- Sweeps ---------------------------------------------------------------
+sweeps = store.get_sweeps(mode)
 st.subheader(f"Profit sweeps to vault ({len(sweeps)})")
 if sweeps:
     sdf = pd.DataFrame(sweeps)
@@ -92,7 +154,6 @@ if sweeps:
 else:
     st.write("No sweeps yet — working capital hasn't hit the trigger.")
 
-# ---- Trade log ------------------------------------------------------------
 st.subheader(f"Trade log ({len(trades)})")
 if trades:
     rows = [
