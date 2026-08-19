@@ -59,10 +59,14 @@ nohup python -m src.cli paper --strategy meanrev --timeframe 1d --pipeline meanr
 ## 6. Watch it
 ```bash
 python -m src.cli status --pipeline meanrev            # quick text summary + metrics
-python -m src.cli dashboard --pipeline meanrev         # live Streamlit scoreboard in your browser
+python -m src.cli dashboard                             # FLEET overview: all pipelines side by side
+python -m src.cli dashboard --pipeline meanrev          # jump straight into one pipeline's detail
 ```
-The dashboard shows working capital vs the "just hold" line, the BTC vault, open positions, every
-trade, cumulative fees, and the net-expectancy gate.
+The **fleet overview** auto-discovers every pipeline in `data/` and compares them in one table
+(gate, working/vault/total, trades, win%, drawdown, open positions, last activity) with a combined
+equity chart — so as you add more strategy pipelines, they all show up here automatically. Drill into
+any one (sidebar picker) for its equity vs "just hold" line, open positions, trades, fees, and sweeps.
+It reads live from each pipeline's DB, so it reflects your running bots on every refresh.
 
 ## 7. Kill switch (always available)
 ```bash
