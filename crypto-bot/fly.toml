@@ -30,4 +30,4 @@ primary_region = "iad"   # pick one near you: iad, lax, lhr, fra, syd, ...
 
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "512mb"
+  memory = "1024mb"   # streamlit + pandas + the loop; 512mb can OOM
