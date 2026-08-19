@@ -1,0 +1,33 @@
+# Fly.io deployment (single always-on machine runs loop + dashboard, one volume).
+# Rename the app, then:  fly launch --no-deploy  ->  set secrets  ->  fly volumes create  ->  fly deploy
+# (full steps in docs/DEPLOY.md).
+
+app = "crypto-bot-CHANGEME"
+primary_region = "iad"   # pick one near you: iad, lax, lhr, fra, syd, ...
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8501"
+  STRATEGY = "meanrev"
+  TIMEFRAME = "1d"
+  PIPELINE = "meanrev"
+  POLL = "3600"
+  BOT_MODE = "paper"   # flip to "live" only after paper convinces you (and secrets are set)
+
+# Persistent SQLite lives on a volume so state survives restarts/deploys.
+[mounts]
+  source = "botdata"
+  destination = "/app/data"
+
+[http_service]
+  internal_port = 8501
+  force_https = true
+  auto_stop_machines = false   # keep it running 24/7 so the loop never sleeps
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

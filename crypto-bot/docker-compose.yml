@@ -1,0 +1,47 @@
+# VPS deployment: trading loop and dashboard as two independently-restarting services
+# sharing one SQLite volume. Put secrets in .env (KRAKEN_API_KEY/SECRET, DASH_PASSWORD, BOT_MODE).
+#
+#   docker compose up -d --build
+#
+# Then front it with HTTPS + your domain (see docker/Caddyfile / docs/DEPLOY.md). Do NOT expose
+# port 8501 to the public internet without the password gate AND HTTPS.
+
+services:
+  bot:
+    build: .
+    command: >
+      python -m src.cli paper --strategy meanrev --timeframe 1d --pipeline meanrev --poll 3600
+    env_file: .env
+    volumes:
+      - botdata:/app/data
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    # Override the entrypoint: this service is dashboard-only.
+    entrypoint: []
+    command: >
+      streamlit run src/app/dashboard.py
+      --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    env_file: .env
+    volumes:
+      - botdata:/app/data
+    expose:
+      - "8501"
+    restart: unless-stopped
+
+  # Reverse proxy: auto-HTTPS + serves the dashboard at your domain. Requires a domain pointed here.
+  caddy:
+    image: caddy:2
+    depends_on: [dashboard]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    restart: unless-stopped
+
+volumes:
+  botdata: {}
+  caddy_data: {}

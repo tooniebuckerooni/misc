@@ -1,0 +1,6 @@
+# Replace bot.example.com with your domain (an A record pointing at the VPS IP).
+# Caddy fetches a free HTTPS cert automatically. The dashboard's own password gate
+# (DASH_PASSWORD) is the second layer — keep it set.
+bot.example.com {
+    reverse_proxy dashboard:8501
+}

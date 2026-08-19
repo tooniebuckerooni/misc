@@ -78,6 +78,10 @@ class Store:
     def _conn(self) -> Iterator[sqlite3.Connection]:
         conn = sqlite3.connect(self.db_path, timeout=30)
         conn.row_factory = sqlite3.Row
+        # WAL lets the dashboard read while the trading loop writes (needed when both run in the
+        # cloud against the same file); busy_timeout avoids "database is locked" under contention.
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         try:
             yield conn
             conn.commit()

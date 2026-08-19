@@ -23,6 +23,19 @@ from ..data.store import Store
 from ..trackers.metrics import compute_metrics
 
 st.set_page_config(page_title="crypto-bot", layout="wide")
+
+# Password gate for public/cloud deployments. Set DASH_PASSWORD in the environment to enable.
+_DASH_PW = os.environ.get("DASH_PASSWORD")
+if _DASH_PW:
+    if not st.session_state.get("authed"):
+        entered = st.text_input("Password", type="password")
+        if entered and entered == _DASH_PW:
+            st.session_state["authed"] = True
+            st.rerun()
+        elif entered:
+            st.error("Wrong password.")
+        st.stop()
+
 S = get_settings()
 
 
@@ -109,6 +122,15 @@ working, vault = float(cap.get("working", 0.0)), float(cap.get("vault", 0.0))
 
 st.sidebar.markdown(f"**Pipeline:** `{name}`")
 st.sidebar.markdown(f"**Kill switch:** {'🔴 ENGAGED' if killed else '🟢 clear'}")
+# Mobile-accessible kill switch: writes the stop flag the trading loop reads on its next tick.
+if killed:
+    if st.sidebar.button("🟢 Clear kill switch"):
+        store.set_state("kill_switch", False)
+        st.rerun()
+else:
+    if st.sidebar.button("🔴 Engage kill switch (flatten & stop)"):
+        store.set_state("kill_switch", True)
+        st.rerun()
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Working capital", f"{working:,.2f}")
