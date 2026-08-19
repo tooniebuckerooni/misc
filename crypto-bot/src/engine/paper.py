@@ -101,6 +101,7 @@ class PaperEngine:
     def run_once(self, now_ts: int | None = None) -> dict:
         now = now_ts or int(time.time() * 1000)
         actions: list[str] = []
+        self.store.set_state("heartbeat", now)  # "I'm alive" stamp for the dashboard
 
         if self.rm.kill_switch_active():
             self.flatten_all(now, "kill_switch")
@@ -208,6 +209,7 @@ class PaperEngine:
 
     # ---- run loop ----------------------------------------------------------
     def run_forever(self, poll_seconds: int = 60, on_tick=None) -> None:  # pragma: no cover
+        self.store.set_state("poll_seconds", poll_seconds)  # lets the dashboard judge staleness
         while True:
             summary = self.run_once()
             if on_tick:

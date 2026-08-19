@@ -13,6 +13,7 @@ Read-only: it never places or changes orders.
 from __future__ import annotations
 
 import os
+import time
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -43,6 +44,18 @@ def discover_pipelines() -> list[str]:
     """Every pipeline is a DB in the data dir; hide the research archive."""
     names = sorted(p.stem for p in DATA_DIR.glob("*.db"))
     return [n for n in names if n != "research"]
+
+
+def heartbeat_status(store) -> tuple[str, bool]:
+    """(human age, alive?) from the loop's last-tick stamp. Alive = ticked within ~3 polls."""
+    hb = store.get_state("heartbeat")
+    poll = store.get_state("poll_seconds", 3600) or 3600
+    if not hb:
+        return "no tick yet", False
+    age = max(0, int(time.time()) - hb // 1000)
+    alive = age < max(3 * poll, 300)
+    human = f"{age}s" if age < 90 else (f"{age // 60}m" if age < 5400 else f"{age // 3600}h")
+    return human, alive
 
 
 def _pipeline_metrics(name: str, mode: str):
@@ -81,9 +94,11 @@ if choice == "— Fleet overview —":
     rows = []
     curves = []
     for name in pipelines:
-        _, cap, trades, curve, positions, killed, m, last = _pipeline_metrics(name, mode)
+        store_i, cap, trades, curve, positions, killed, m, last = _pipeline_metrics(name, mode)
+        hb_age, hb_alive = heartbeat_status(store_i)
         rows.append({
             "pipeline": name,
+            "alive": ("🟢 " if hb_alive else "🔴 ") + hb_age,
             "gate": "✅" if m.passes_gate else ("—" if m.n_trades == 0 else "❌"),
             "working": round(m.final_working, 2),
             "vault": round(m.final_vault, 2),
@@ -120,7 +135,9 @@ name = choice
 store, cap, trades, curve, positions, killed, m, _ = _pipeline_metrics(name, mode)
 working, vault = float(cap.get("working", 0.0)), float(cap.get("vault", 0.0))
 
+_hb_age, _hb_alive = heartbeat_status(store)
 st.sidebar.markdown(f"**Pipeline:** `{name}`")
+st.sidebar.markdown(f"**Loop:** {'🟢 alive' if _hb_alive else '🔴 stale'} — last tick {_hb_age} ago")
 st.sidebar.markdown(f"**Kill switch:** {'🔴 ENGAGED' if killed else '🟢 clear'}")
 # Mobile-accessible kill switch: writes the stop flag the trading loop reads on its next tick.
 if killed:
