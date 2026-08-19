@@ -7,16 +7,38 @@ best configs found so far; tune in one place.
 
 from __future__ import annotations
 
-from ..config.settings import Settings
+from ..config.settings import PROJECT_ROOT, Settings
 from ..regime.classifier import RegimeClassifier, Season
 from .base import Strategy
 from .bracket_breakout import BracketBreakout
 from .kalman_supertrend import KalmanSuperTrend
+from .lab import LabConfig, LabStrategy
 from .mean_reversion import MeanReversion
 from .momentum import Momentum
 from .router import RegimeRouter
 
-STRATEGY_NAMES = ["breakout", "meanrev", "kalman", "momentum", "router"]
+STRATEGY_NAMES = ["breakout", "meanrev", "kalman", "momentum", "lab", "router"]
+
+
+def _load_lab_sources():
+    """Load external SignalSources from an optional drop-in file: configs/lab_sources.py
+
+    That file (if present) must define get_sources() -> list[(SignalSource, weight)]. This lets you
+    wire 'unexpected' data (sentiment, reverse-Cramer, on-chain…) without touching core code.
+    """
+    path = PROJECT_ROOT / "configs" / "lab_sources.py"
+    if not path.exists():
+        return []
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("lab_sources", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return list(mod.get_sources()) if hasattr(mod, "get_sources") else []
+    except Exception as e:  # noqa: BLE001
+        print(f"[lab] could not load configs/lab_sources.py: {e}")
+        return []
 
 
 def build_strategy(name: str, settings: Settings) -> Strategy:
@@ -37,6 +59,11 @@ def build_strategy(name: str, settings: Settings) -> Strategy:
         )
     if name == "momentum":
         return Momentum(mom_bars=30, trend_ma=50, min_return=0.10, tp_atr_mult=3.0, sl_atr_mult=2.0)
+    if name == "lab":
+        # Your tuning bench. Edit configs/lab.json to adjust; falls back to broad neutral defaults.
+        cfg_path = PROJECT_ROOT / "configs" / "lab.json"
+        cfg = LabConfig.from_json(cfg_path) if cfg_path.exists() else LabConfig()
+        return LabStrategy(cfg, sources=_load_lab_sources())
     if name == "router":
         # Season label -> specialist, from the regime analysis (FINDINGS.md).
         mapping = {

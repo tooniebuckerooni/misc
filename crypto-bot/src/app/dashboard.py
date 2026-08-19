@@ -162,6 +162,23 @@ pf = "∞" if m.profit_factor == float("inf") else f"{m.profit_factor:.2f}"
 c7.metric("Profit factor", pf)
 c8.metric("Max drawdown", f"{m.max_drawdown:.1%}")
 
+# ---- Strategy progress (from this pipeline's latest backtest) --------------
+from ..research.progress import evaluate_progress  # noqa: E402
+
+bt_trades = store.get_trades("backtest")
+if bt_trades:
+    bt_cap = store.get_state("capital:backtest") or {}
+    bm = compute_metrics(bt_trades, store.get_equity_curve("backtest"),
+                         float(bt_cap.get("working", 0.0)), float(bt_cap.get("vault", 0.0)))
+    pct, milestones = evaluate_progress(bm)
+    st.subheader(f"Strategy progress — {pct}% toward a provable winner")
+    st.progress(pct / 100)
+    cols = st.columns(2)
+    for i, (label, done, w) in enumerate(milestones):
+        cols[i % 2].markdown(f"{'✅' if done else '⬜'} {label}  ·  _{w}%_")
+    st.caption("Based on the latest backtest for this pipeline. Re-run a backtest after tuning to "
+               "update. True confidence still needs out-of-sample walk-forward.")
+
 st.subheader("Total value vs. doing nothing")
 if curve:
     df = pd.DataFrame(curve)

@@ -165,6 +165,90 @@ def adx(bars: list[OHLCVBar], period: int = 14) -> float | None:
     return a
 
 
+def _ema_last(vals: list[float], period: int) -> float | None:
+    if len(vals) < period:
+        return None
+    k = 2.0 / (period + 1)
+    e = sum(vals[:period]) / period  # seed with SMA
+    for v in vals[period:]:
+        e = v * k + e * (1 - k)
+    return e
+
+
+def ema(bars: list[OHLCVBar], period: int) -> float | None:
+    """Latest EMA of close (computed over a bounded tail for speed)."""
+    return _ema_last([b.close for b in bars[-(period * 4):]], period)
+
+
+def rsi(bars: list[OHLCVBar], period: int = 14) -> float | None:
+    """Relative Strength Index (0-100). <30 oversold, >70 overbought."""
+    if len(bars) < period + 1:
+        return None
+    tail = bars[-(period + 1):]
+    gains = losses = 0.0
+    for i in range(1, len(tail)):
+        d = tail[i].close - tail[i - 1].close
+        gains += d if d > 0 else 0.0
+        losses += -d if d < 0 else 0.0
+    avg_l = losses / period
+    if avg_l == 0:
+        return 100.0
+    rs = (gains / period) / avg_l
+    return 100.0 - 100.0 / (1.0 + rs)
+
+
+def macd(bars: list[OHLCVBar], fast: int = 12, slow: int = 26, signal: int = 9):
+    """Return (macd_line, signal_line, histogram) latest, or None."""
+    closes = [b.close for b in bars[-(slow * 4 + signal * 4):]]
+    if len(closes) < slow + signal:
+        return None
+    line: list[float] = []
+    for i in range(slow, len(closes) + 1):
+        window = closes[:i]
+        ef = _ema_last(window[-fast * 4:], fast)
+        es = _ema_last(window[-slow * 4:], slow)
+        if ef is not None and es is not None:
+            line.append(ef - es)
+    if len(line) < signal:
+        return None
+    sig = _ema_last(line, signal)
+    hist = (line[-1] - sig) if sig is not None else None
+    return line[-1], sig, hist
+
+
+def bollinger_pctb(bars: list[OHLCVBar], period: int = 20, k: float = 2.0) -> float | None:
+    """%b: 0 at lower band, 1 at upper band (can exceed). Below 0 = very oversold."""
+    if len(bars) < period:
+        return None
+    closes = [b.close for b in bars[-period:]]
+    mean = sum(closes) / period
+    sd = (sum((c - mean) ** 2 for c in closes) / period) ** 0.5
+    if sd == 0:
+        return 0.5
+    lower, upper = mean - k * sd, mean + k * sd
+    return (bars[-1].close - lower) / (upper - lower)
+
+
+def stochastic_k(bars: list[OHLCVBar], period: int = 14) -> float | None:
+    """Stochastic %K (0-100). <20 oversold, >80 overbought."""
+    if len(bars) < period:
+        return None
+    window = bars[-period:]
+    hi = max(b.high for b in window)
+    lo = min(b.low for b in window)
+    if hi == lo:
+        return 50.0
+    return 100.0 * (bars[-1].close - lo) / (hi - lo)
+
+
+def roc(bars: list[OHLCVBar], period: int) -> float | None:
+    """Rate of change (trailing return) over `period` bars."""
+    if len(bars) < period + 1:
+        return None
+    past = bars[-(period + 1)].close
+    return (bars[-1].close / past - 1.0) if past > 0 else None
+
+
 def returns_std(bars: list[OHLCVBar], period: int) -> float | None:
     """Std-dev of per-bar returns — a normalized volatility gauge for ranking setups."""
     if len(bars) < period + 1:
