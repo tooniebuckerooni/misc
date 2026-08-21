@@ -1,33 +1,38 @@
 #!/bin/sh
-# Runs BOTH the trading loop (background) and the dashboard (foreground) in one container.
-# Handy for single-machine hosts (e.g. Fly.io) where both share one volume. For a VPS you can
-# instead use docker-compose.yml, which runs them as two independently-restarting services.
+# Runs one or more trading loops (background) + the dashboard (foreground) in one container.
+# PIPELINES is a comma list of strategy:timeframe, each getting its own isolated pipeline/DB.
+# Handy for single-machine hosts (Fly.io). For a VPS you can instead use docker-compose.yml.
 set -eu
 
-STRATEGY="${STRATEGY:-meanrev}"
-TIMEFRAME="${TIMEFRAME:-1d}"
-PIPELINE="${PIPELINE:-$STRATEGY}"
+PIPELINES="${PIPELINES:-meanrev:1d}"   # e.g. "meanrev:1d,ict:4h"
 POLL="${POLL:-3600}"
 PORT="${PORT:-8501}"
 
 # Default to paper. Live requires BOT_MODE=live AND real trade-only keys — a deliberate choice.
 if [ "${BOT_MODE:-paper}" = "live" ]; then
     RUN_CMD="live --yes"
-    echo "entrypoint: starting LIVE trading loop (real orders, capped)"
+    echo "entrypoint: LIVE trading (real orders, capped)"
 else
     RUN_CMD="paper"
-    echo "entrypoint: starting PAPER loop (no real orders)"
+    echo "entrypoint: PAPER (no real orders)"
 fi
 
-# Trading loop in the background; if it exits, log it (dashboard keeps serving so you can see state).
-(
-    while true; do
-        python -m src.cli $RUN_CMD --strategy "$STRATEGY" --timeframe "$TIMEFRAME" \
-            --pipeline "$PIPELINE" --poll "$POLL" || echo "loop exited ($?), restarting in 30s"
-        sleep 30
-    done
-) &
+# Launch a resilient loop per pipeline (restarts itself if it exits).
+OLD_IFS="$IFS"; IFS=','
+for spec in $PIPELINES; do
+    strat="${spec%%:*}"
+    tf="${spec##*:}"
+    echo "entrypoint: starting pipeline '$strat' @ $tf"
+    (
+        while true; do
+            python -m src.cli $RUN_CMD --strategy "$strat" --timeframe "$tf" \
+                --pipeline "$strat" --poll "$POLL" || echo "loop $strat exited ($?), restart in 30s"
+            sleep 30
+        done
+    ) &
+done
+IFS="$OLD_IFS"
 
-# Dashboard in the foreground (keeps the container alive, serves the mobile link).
+# Dashboard in the foreground (keeps the container alive; serves the mobile link, fleet view).
 exec streamlit run src/app/dashboard.py \
     --server.port "$PORT" --server.address 0.0.0.0 --server.headless true

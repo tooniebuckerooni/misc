@@ -10,9 +10,7 @@ primary_region = "iad"   # pick one near you: iad, lax, lhr, fra, syd, ...
 
 [env]
   PORT = "8501"
-  STRATEGY = "meanrev"
-  TIMEFRAME = "1d"
-  PIPELINE = "meanrev"
+  PIPELINES = "meanrev:1d,ict:4h"   # comma list of strategy:timeframe; each is its own pipeline
   POLL = "3600"
   BOT_MODE = "paper"   # flip to "live" only after paper convinces you (and secrets are set)
 
