@@ -11,13 +11,14 @@ from ..config.settings import PROJECT_ROOT, Settings
 from ..regime.classifier import RegimeClassifier, Season
 from .base import Strategy
 from .bracket_breakout import BracketBreakout
+from .ict import ICTStrategy
 from .kalman_supertrend import KalmanSuperTrend
 from .lab import LabConfig, LabStrategy
 from .mean_reversion import MeanReversion
 from .momentum import Momentum
 from .router import RegimeRouter
 
-STRATEGY_NAMES = ["breakout", "meanrev", "kalman", "momentum", "lab", "router"]
+STRATEGY_NAMES = ["breakout", "meanrev", "kalman", "momentum", "ict", "lab", "router"]
 
 
 def _load_lab_sources():
@@ -59,6 +60,8 @@ def build_strategy(name: str, settings: Settings) -> Strategy:
         )
     if name == "momentum":
         return Momentum(mom_bars=30, trend_ma=50, min_return=0.10, tp_atr_mult=3.0, sl_atr_mult=2.0)
+    if name == "ict":
+        return ICTStrategy(window=30, disp_mult=1.0, fvg_max_age=10, r_multiple=2.0)
     if name == "lab":
         # Your tuning bench. Edit configs/lab.json to adjust; falls back to broad neutral defaults.
         cfg_path = PROJECT_ROOT / "configs" / "lab.json"
