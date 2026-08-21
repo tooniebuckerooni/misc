@@ -170,6 +170,27 @@ family (breakout, momentum, mostly kalman) is weak-to-dead on crypto majors afte
 for "several leads" honestly; the market only gave us one. Deployable system = mean-reversion +
 risk-based sizing + heat cap.
 
+## ICT ERL->IRL (mechanical) — a narrow 4h edge, our 2nd lead
+
+Codified the Reddit ICT setup (sweep -> displacement -> enter bullish FVG -> stop beyond swept low
+-> 2R), dropping the discretionary/session parts. Walk-forward on crypto (risk-sized), by timeframe:
+
+| Timeframe | Trades | Net | PF | Win% | Folds+ |
+|---|---|---|---|---|---|
+| 1h | 1033 | −179 | 0.83 | 34% | 0/5 ☠️ |
+| **4h** | 173 | +89 | 1.29 | 43% | **4/5** 🌱 |
+| 1d | 218 | +46 | 1.01 | 37% | 3/5 (breakeven) |
+
+**The edge peaks at 4h** — the first strategy to be net-positive on intraday at all (breakout/meanrev/
+kalman were all negative on 4h). It collapses at 1h (fee/noise drag) and is breakeven on 1d, so it's
+timeframe-specific and modest (leans on the 2R target, not win rate), not a proven winner. But it's a
+real, untuned OOS edge on a **different timeframe + mechanic** from meanrev, so it genuinely diversifies.
+
+- Run it at **4h**: `--strategy ict --timeframe 4h --pipeline ict`.
+- Native home is intraday index-futures/FX with session timing — test properly once IBKR is wired.
+- Caveats: single-timeframe peak (watch for luck), self-reported source hyped (their live callout
+  actually lost), win rate low. Nurture on paper; refine (session filters, DOL-based targets) before trust.
+
 ## Guardrail principles adopted (from r/ai_trading trust discussions)
 
 - Limits live in the **execution layer**, never a prompt. (We have no LLM in the loop — enforced in
