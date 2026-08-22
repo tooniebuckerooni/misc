@@ -19,9 +19,11 @@ from datetime import datetime, timezone
 import pandas as pd
 import streamlit as st
 
-from ..config.settings import DATA_DIR, get_settings
-from ..data.store import Store
-from ..trackers.metrics import compute_metrics
+# Absolute imports (not relative) so `streamlit run src/app/dashboard.py` works — Streamlit runs
+# this file as a script, where relative imports have no package context.
+from src.config.settings import DATA_DIR, get_settings
+from src.data.store import Store
+from src.trackers.metrics import compute_metrics
 
 st.set_page_config(page_title="crypto-bot", layout="wide")
 
@@ -163,7 +165,7 @@ c7.metric("Profit factor", pf)
 c8.metric("Max drawdown", f"{m.max_drawdown:.1%}")
 
 # ---- Strategy progress (from this pipeline's latest backtest) --------------
-from ..research.progress import evaluate_progress  # noqa: E402
+from src.research.progress import evaluate_progress  # noqa: E402
 
 bt_trades = store.get_trades("backtest")
 if bt_trades:

@@ -1,0 +1,5 @@
+# Keep shell scripts (and other Linux-run files) as LF even when checked out on Windows,
+# so the container's shebang line never gets a stray carriage return.
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker/entrypoint.sh text eol=lf

@@ -12,7 +12,8 @@ RUN mkdir -p /app/data
 VOLUME ["/app/data"]
 
 COPY docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+# Strip any CRLF (Windows) line endings so the shebang works, then make executable.
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 EXPOSE 8501
 ENTRYPOINT ["/app/entrypoint.sh"]
