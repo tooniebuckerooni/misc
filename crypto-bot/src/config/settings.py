@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     # ---- Capital model -----------------------------------------------------
     # Amounts are in the accounting/quote unit used by the backtester (e.g. USD-equiv or
     # BTC-equiv). Live sizing is derived from actual balances.
-    starting_working_capital: float = 200.0
+    starting_working_capital: float = Field(default=200.0, alias="STARTING_CAPITAL")
     sweep_trigger_multiple: float = 2.0  # sweep when working equity >= multiple * base
     sweep_profit_fraction: float = 0.5   # fraction of profit moved to the BTC vault
     vault_symbol: str = "BTC/USD"        # live: swept profit is used to buy BTC on this market

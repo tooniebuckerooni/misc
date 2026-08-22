@@ -10,7 +10,9 @@ primary_region = "iad"   # pick one near you: iad, lax, lhr, fra, syd, ...
 
 [env]
   PORT = "8501"
-  PIPELINES = "meanrev:1d,ict:4h"   # comma list of strategy:timeframe; each is its own pipeline
+  PIPELINES = "meanrev:1d,ict:4h,lab:1d"   # comma list of strategy:timeframe; each is its own pipeline
+  STARTING_CAPITAL = "500"                 # paper starting capital per pipeline
+  RESET_ON_BOOT = "1"                      # one-time wipe so all start fresh at 500 (self-disables)
   POLL = "3600"
   BOT_MODE = "paper"   # flip to "live" only after paper convinces you (and secrets are set)
 

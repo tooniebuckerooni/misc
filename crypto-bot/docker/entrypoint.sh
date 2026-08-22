@@ -17,6 +17,14 @@ else
     echo "entrypoint: PAPER (no real orders)"
 fi
 
+# One-time fresh start: wipe old pipeline state so everything re-inits at STARTING_CAPITAL.
+# Self-disables via a sentinel so normal restarts NEVER wipe your paper history.
+if [ "${RESET_ON_BOOT:-0}" != "0" ] && [ ! -f /app/data/.reset_done ]; then
+    echo "entrypoint: one-time fresh start — clearing pipeline state"
+    rm -f /app/data/*.db /app/data/*.db-wal /app/data/*.db-shm
+    mkdir -p /app/data && touch /app/data/.reset_done
+fi
+
 # Launch a resilient loop per pipeline (restarts itself if it exits).
 OLD_IFS="$IFS"; IFS=','
 for spec in $PIPELINES; do
