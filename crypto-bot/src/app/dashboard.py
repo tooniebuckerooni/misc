@@ -168,18 +168,24 @@ c8.metric("Max drawdown", f"{m.max_drawdown:.1%}")
 from src.research.progress import evaluate_progress  # noqa: E402
 
 bt_trades = store.get_trades("backtest")
-if bt_trades:
+if bt_trades:  # prefer a backtest if one's been run (fast tuning feedback)
+    prog_src = "backtest"
     bt_cap = store.get_state("capital:backtest") or {}
-    bm = compute_metrics(bt_trades, store.get_equity_curve("backtest"),
-                         float(bt_cap.get("working", 0.0)), float(bt_cap.get("vault", 0.0)))
-    pct, milestones = evaluate_progress(bm)
+    prog_m = compute_metrics(bt_trades, store.get_equity_curve("backtest"),
+                             float(bt_cap.get("working", 0.0)), float(bt_cap.get("vault", 0.0)))
+elif trades:   # otherwise fall back to live results for the selected mode (so it shows on mobile)
+    prog_src, prog_m = mode, m
+else:
+    prog_src, prog_m = None, None
+if prog_m is not None:
+    pct, milestones = evaluate_progress(prog_m)
     st.subheader(f"Strategy progress — {pct}% toward a provable winner")
     st.progress(pct / 100)
     cols = st.columns(2)
     for i, (label, done, w) in enumerate(milestones):
         cols[i % 2].markdown(f"{'✅' if done else '⬜'} {label}  ·  _{w}%_")
-    st.caption("Based on the latest backtest for this pipeline. Re-run a backtest after tuning to "
-               "update. True confidence still needs out-of-sample walk-forward.")
+    st.caption(f"Based on {prog_src} results. Tune configs/lab.json + re-run a backtest to move it. "
+               "True confidence still needs out-of-sample walk-forward.")
 
 st.subheader("Total value vs. doing nothing")
 if curve:
